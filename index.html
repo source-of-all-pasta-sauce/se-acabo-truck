@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SE ACABÓ — 3D Food Truck</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; overflow: hidden; font-family: Georgia, serif; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog = new THREE.Fog(0x1a1a2e, 20, 40);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(6, 4, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+document.body.appendChild(renderer.domElement);
+
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = 0.05;
+orbitControls.target.set(0, 1.2, 0);
+orbitControls.minDistance = 4;
+orbitControls.maxDistance = 20;
+
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const sun = new THREE.DirectionalLight(0xfff5e6, 1.2);
+sun.position.set(5, 8, 4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 25;
+sun.shadow.camera.left = -8;
+sun.shadow.camera.right = 8;
+sun.shadow.camera.top = 8;
+sun.shadow.camera.bottom = -8;
+scene.add(sun);
+scene.add(new THREE.DirectionalLight(0x6688cc, 0.3).translateX(-3).translateY(4).translateZ(-2));
+scene.add(new THREE.DirectionalLight(0xff8866, 0.2).translateX(-2).translateY(3).translateZ(5));
+
+
+const CORAL = 0xE07050;
+const DARK_CORAL = 0xC05540;
+const DARK = 0x2D1810;
+const WINDOW_BLUE = 0xB8D8E8;
+const CHROME = 0xCCCCCC;
+
+function createCanvasTexture(width, height, drawFn) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  drawFn(ctx, width, height);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(30, 30),
+  new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 0.9 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+
+const truck = new THREE.Group();
+scene.add(truck);
+
+
+const coralMat = new THREE.MeshStandardMaterial({ color: CORAL, roughness: 0.6, metalness: 0.05 });
+const darkCoralMat = new THREE.MeshStandardMaterial({ color: DARK_CORAL, roughness: 0.6, metalness: 0.05 });
+const darkMat = new THREE.MeshStandardMaterial({ color: DARK, roughness: 0.8 });
+const chromeMat = new THREE.MeshStandardMaterial({ color: CHROME, roughness: 0.2, metalness: 0.8 });
+const glassMat = new THREE.MeshStandardMaterial({ color: WINDOW_BLUE, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.6 });
+const tireMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+const hubMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.6 });
+
+const bodyL = 4.0, bodyH = 2.0, bodyW = 1.8;
+const cabL = 1.2, cabH = 1.6, floorY = 0.7;
+
+
+const tracked = [];
+let trackedIdCounter = 0;
+
+function track(mesh, label) {
+  mesh.userData.id = label + '_' + (trackedIdCounter++);
+  tracked.push(mesh);
+}
+
+
+const body = new THREE.Mesh(new THREE.BoxGeometry(bodyW, bodyH, bodyL), coralMat);
+body.position.set(0, floorY + bodyH / 2, -cabL / 2);
+body.castShadow = true; body.receiveShadow = true;
+truck.add(body);
+
+const cab = new THREE.Mesh(new THREE.BoxGeometry(bodyW, cabH, cabL), darkCoralMat);
+cab.position.set(0, floorY + cabH / 2, bodyL / 2 + cabL / 2 - cabL / 2 + 0.6);
+cab.castShadow = true; cab.receiveShadow = true;
+truck.add(cab);
+
+const cabRoof = new THREE.Mesh(new THREE.BoxGeometry(bodyW + 0.05, 0.08, cabL + 0.05), darkCoralMat);
+cabRoof.position.set(0, floorY + cabH + 0.04, cab.position.z);
+cabRoof.castShadow = true;
+truck.add(cabRoof);
+
+const windshield = new THREE.Mesh(new THREE.PlaneGeometry(bodyW * 0.75, cabH * 0.5), glassMat);
+windshield.position.set(0, floorY + cabH * 0.65, cab.position.z + cabL / 2 + 0.01);
+truck.add(windshield);
+
+for (let side of [-1, 1]) {
+  const sw = new THREE.Mesh(new THREE.PlaneGeometry(cabL * 0.6, cabH * 0.4), glassMat);
+  sw.position.set(side * (bodyW / 2 + 0.01), floorY + cabH * 0.65, cab.position.z);
+  sw.rotation.y = side * Math.PI / 2;
+  truck.add(sw);
+}
+
+function createWheel(x, z) {
+  const g = new THREE.Group();
+  const tire = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.12, 12, 24), tireMat);
+  tire.rotation.y = Math.PI / 2; tire.castShadow = true; g.add(tire);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.12, 16), hubMat);
+  hub.rotation.z = Math.PI / 2; g.add(hub);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.14, 8), chromeMat);
+  cap.rotation.z = Math.PI / 2; g.add(cap);
+  g.position.set(x, 0.3, z);
+  return g;
+}
+const wheelPositions = [
+  { x: bodyW/2+0.05, z: -cabL/2+bodyL/2-0.4 },
+  { x: -bodyW/2-0.05, z: -cabL/2+bodyL/2-0.4 },
+  { x: bodyW/2+0.05, z: -cabL/2-bodyL/2+0.5 },
+  { x: -bodyW/2-0.05, z: -cabL/2-bodyL/2+0.5 },
+];
+const wheels = [];
+wheelPositions.forEach(pos => {
+  const w = createWheel(pos.x, pos.z);
+  truck.add(w); wheels.push(w);
+});
+
+for (const pos of wheelPositions) {
+  const side = pos.x > 0 ? 1 : -1;
+  const arch = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.15, 0.7), darkCoralMat);
+  arch.position.set(pos.x - side * 0.04, 0.55, pos.z);
+  arch.castShadow = true; truck.add(arch);
+}
+
+const under = new THREE.Mesh(new THREE.BoxGeometry(bodyW - 0.2, 0.15, bodyL + cabL), darkMat);
+under.position.set(0, floorY - 0.07, 0);
+truck.add(under);
+
+for (let side of [-1, 1]) {
+  const hl = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.5 }));
+  hl.position.set(side * 0.55, floorY + cabH * 0.45, cab.position.z + cabL / 2 + 0.05);
+  truck.add(hl);
+}
+
+for (let side of [-1, 1]) {
+  const tl = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0xCE2B37, emissive: 0xCE2B37, emissiveIntensity: 0.3 }));
+  tl.position.set(side * 0.65, floorY + bodyH - 0.3, -cabL/2 - bodyL/2 - 0.03);
+  truck.add(tl);
+}
+
+const fb = new THREE.Mesh(new THREE.BoxGeometry(bodyW + 0.1, 0.12, 0.08), chromeMat);
+fb.position.set(0, floorY + 0.1, cab.position.z + cabL / 2 + 0.04); fb.castShadow = true; truck.add(fb);
+const rb = new THREE.Mesh(new THREE.BoxGeometry(bodyW + 0.1, 0.12, 0.08), chromeMat);
+rb.position.set(0, floorY + 0.1, -cabL/2 - bodyL/2 - 0.04); rb.castShadow = true; truck.add(rb);
+
+const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8), chromeMat);
+exhaust.position.set(-bodyW/2 + 0.15, floorY - 0.05, -cabL/2 - bodyL/2 + 0.3);
+exhaust.rotation.x = Math.PI / 2; truck.add(exhaust);
+
+const roofTex = createCanvasTexture(256, 512, (ctx, w, h) => {
+  for (let y = 0; y < h; y += 20) {
+    ctx.fillStyle = y % 40 === 0 ? '#E07050' : '#FFF5E6';
+    ctx.fillRect(0, y, w, 20);
+  }
+});
+const roofDecal = new THREE.Mesh(new THREE.PlaneGeometry(bodyW, bodyL),
+  new THREE.MeshStandardMaterial({ map: roofTex, roughness: 0.7 }));
+roofDecal.position.set(0, floorY + bodyH + 0.01, -cabL / 2);
+roofDecal.rotation.x = -Math.PI / 2;
+truck.add(roofDecal);
+
+const spot = new THREE.Mesh(new THREE.CircleGeometry(3, 32),
+  new THREE.MeshStandardMaterial({ color: 0x2a2a3e, roughness: 0.9 }));
+spot.rotation.x = -Math.PI / 2; spot.position.y = 0.01; scene.add(spot);
+
+
+const servWinTex = createCanvasTexture(512, 256, (ctx, w, h) => {
+  ctx.fillStyle = '#FFF5E6'; ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#2D1810'; ctx.lineWidth = 6; ctx.strokeRect(3, 3, w-6, h-6);
+  ctx.fillStyle = '#2D1810'; ctx.font = 'bold 28px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('— MENÚ —', w/2, 40);
+  ctx.font = '18px Georgia'; ctx.textAlign = 'left';
+  ['Clásica Italiana............$9','Pollo a la Milanesa........$10','Salchicha Picante...........$9',
+   'Bistec y Pesto.............$12','Caprese.....................$8','Verduras Asadas.............$9',
+   'Jardín Vegano...............$8'].forEach((item, i) => ctx.fillText(item, 30, 72 + i * 26));
+});
+const servWin = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.0),
+  new THREE.MeshStandardMaterial({ map: servWinTex, roughness: 0.4 }));
+servWin.position.set(bodyW/2 + 0.01, floorY + bodyH * 0.55, -cabL/2 - 0.3);
+servWin.rotation.y = Math.PI / 2;
+truck.add(servWin);
+track(servWin, 'Serving Window (Menu)');
+
+const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 1.8), chromeMat);
+shelf.position.set(bodyW/2 + 0.15, floorY + bodyH * 0.55 - 0.52, -cabL/2 - 0.3);
+shelf.castShadow = true; truck.add(shelf);
+track(shelf, 'Serving Shelf');
+
+const awningTex = createCanvasTexture(512, 128, (ctx, w, h) => {
+  ctx.fillStyle = '#FF1493'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#CC1177';
+  for (let i = 0; i < w; i += 80) ctx.fillRect(i, 0, 40, h);
+  ctx.fillStyle = '#FF1493';
+  for (let i = 0; i < w; i += 60) { ctx.beginPath(); ctx.arc(i+30, h, 30, Math.PI, 0); ctx.fill(); }
+  ctx.fillStyle = 'white'; ctx.font = 'bold 36px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('SE ACABÓ', w/2, 50);
+  ctx.font = 'italic 20px Georgia'; ctx.fillText('Piadinas Artesanales', w/2, 80);
+});
+const awning = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 0.7),
+  new THREE.MeshStandardMaterial({ map: awningTex, roughness: 0.7, side: THREE.DoubleSide }));
+awning.position.set(bodyW/2 + 0.35, floorY + bodyH * 0.55 + 0.55, -cabL/2 - 0.3);
+awning.rotation.y = Math.PI / 2; awning.rotation.x = -0.3; awning.castShadow = true;
+truck.add(awning);
+track(awning, 'Pink Awning');
+
+for (let z of [-1.1, 0.5]) {
+  const s = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.7), chromeMat);
+  s.position.set(bodyW/2 + 0.45, floorY + bodyH * 0.55 + 0.2, -cabL/2 - 0.3 + z);
+  s.rotation.z = 0.2; truck.add(s);
+  track(s, 'Awning Pole');
+}
+
+const sideTex = createCanvasTexture(1024, 512, (ctx, w, h) => {
+  ctx.fillStyle = '#E07050'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#009246'; ctx.fillRect(0, 0, w/3, 20);
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(w/3, 0, w/3, 20);
+  ctx.fillStyle = '#CE2B37'; ctx.fillRect(2*w/3, 0, w/3, 20);
+  ctx.fillStyle = '#C05540'; ctx.fillRect(0, 20, w, 80);
+  ctx.fillStyle = '#2D1810'; ctx.font = 'bold 100px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('SE ACABÓ', w/2, 90);
+  ctx.beginPath(); ctx.arc(200, 300, 120, 0, Math.PI*2);
+  ctx.fillStyle = '#FFF5E6'; ctx.fill();
+  ctx.strokeStyle = '#2D1810'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.fillStyle = '#2D1810'; ctx.font = 'bold 40px Georgia';
+  ctx.fillText('SE', 200, 275); ctx.fillText('ACABÓ', 200, 320);
+  ctx.font = '24px Georgia'; ctx.fillStyle = '#E07050'; ctx.fillText('EST. 2026', 200, 355);
+  ctx.fillStyle = '#FFF5E6'; ctx.font = 'italic 50px Georgia';
+  ctx.fillText('Piadinas Artesanales', w/2 + 80, 300);
+  ctx.font = '30px Georgia';
+  ctx.fillText('E S T A B L E C I M I E N T O   2 0 2 6', w/2, h - 40);
+});
+const leftPanel = new THREE.Mesh(new THREE.PlaneGeometry(bodyL, bodyH),
+  new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.6 }));
+leftPanel.position.set(-bodyW/2 - 0.01, floorY + bodyH/2, -cabL/2);
+leftPanel.rotation.y = -Math.PI / 2;
+truck.add(leftPanel);
+track(leftPanel, 'Left Side Panel (Logo)');
+
+const rightTopTex = createCanvasTexture(512, 128, (ctx, w, h) => {
+  ctx.fillStyle = '#C05540'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#009246'; ctx.fillRect(0, 0, w/3, 15);
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(w/3, 0, w/3, 15);
+  ctx.fillStyle = '#CE2B37'; ctx.fillRect(2*w/3, 0, w/3, 15);
+  ctx.fillStyle = '#2D1810'; ctx.font = 'bold 60px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('SE ACABÓ', w/2, 80);
+  ctx.font = 'italic 28px Georgia'; ctx.fillStyle = '#FFF5E6';
+  ctx.fillText('Piadinas Artesanales', w/2, 115);
+});
+const rightTopPanel = new THREE.Mesh(new THREE.PlaneGeometry(bodyL - 0.5, 0.45),
+  new THREE.MeshStandardMaterial({ map: rightTopTex, roughness: 0.6 }));
+rightTopPanel.position.set(bodyW/2 + 0.01, floorY + bodyH - 0.25, -cabL/2 - 0.05);
+rightTopPanel.rotation.y = Math.PI / 2;
+truck.add(rightTopPanel);
+track(rightTopPanel, 'Right Side Branding');
+
+const backTex = createCanvasTexture(512, 512, (ctx, w, h) => {
+  ctx.fillStyle = '#D4623F'; ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#C0553A'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(w/2, 40); ctx.lineTo(w/2, h-80); ctx.stroke();
+  ctx.fillStyle = '#CE2B37'; ctx.fillRect(30, 40, 50, 35); ctx.fillRect(w-80, 40, 50, 35);
+  ctx.fillStyle = '#FFF5E6'; ctx.font = 'bold 60px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('SE', w/2, 200); ctx.fillText('ACABÓ', w/2, 270);
+  ctx.fillStyle = '#FFF5E6'; ctx.fillRect(w/2-80, h-150, 160, 70);
+  ctx.strokeStyle = '#2D1810'; ctx.lineWidth = 3; ctx.strokeRect(w/2-80, h-150, 160, 70);
+  ctx.fillStyle = '#2D1810'; ctx.font = 'bold 40px monospace'; ctx.fillText('SE-2026', w/2, h-105);
+  ctx.fillStyle = '#888888'; ctx.fillRect(20, h-50, w-40, 30);
+});
+const backPanel = new THREE.Mesh(new THREE.PlaneGeometry(bodyW, bodyH),
+  new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.6 }));
+backPanel.position.set(0, floorY + bodyH/2, -cabL/2 - bodyL/2 - 0.01);
+backPanel.rotation.y = Math.PI;
+truck.add(backPanel);
+track(backPanel, 'Back Panel');
+
+const frontTex = createCanvasTexture(512, 512, (ctx, w, h) => {
+  ctx.fillStyle = '#D4623F'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#555555'; ctx.fillRect(60, 200, w-120, 80);
+  for (let x = 80; x < w-80; x += 40) {
+    ctx.strokeStyle = '#777'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x, 200); ctx.lineTo(x, 280); ctx.stroke();
+  }
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.arc(90, 180, 35, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#2D1810'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(w-90, 180, 35, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#888888'; ctx.fillRect(30, h-70, w-60, 40);
+  ctx.fillStyle = '#FFF5E6'; ctx.font = 'bold 30px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('SE ACABÓ', w/2, 140);
+});
+const frontPanel = new THREE.Mesh(new THREE.PlaneGeometry(bodyW, cabH),
+  new THREE.MeshStandardMaterial({ map: frontTex, roughness: 0.6 }));
+frontPanel.position.set(0, floorY + cabH/2, cab.position.z + cabL/2 + 0.01);
+truck.add(frontPanel);
+track(frontPanel, 'Front Panel');
+
+const ac = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.4), chromeMat);
+ac.position.set(0, floorY + bodyH + 0.1, -cabL/2 - 0.5);
+ac.castShadow = true; truck.add(ac);
+track(ac, 'AC Unit');
+
+const vegSignTex = createCanvasTexture(512, 200, (ctx, w, h) => {
+  ctx.fillStyle = '#8B2BE2';
+  const r = 20;
+  ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
+  ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h); ctx.lineTo(r,h);
+  ctx.quadraticCurveTo(0,h,0,h-r); ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0); ctx.fill();
+  ctx.fillStyle = 'white'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center';
+  ctx.fillText('VEGETARIANO / VEGANO', w/2, 45);
+  ctx.font = '22px Arial'; ctx.textAlign = 'left';
+  ctx.fillText('Verduras Asadas...........$9', 30, 90);
+  ctx.fillText('Jardín Vegano..............$8', 30, 125);
+  ctx.fillText('Hamburguesa con Queso.$10', 30, 160);
+});
+const vegSign = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.5),
+  new THREE.MeshStandardMaterial({ map: vegSignTex, roughness: 0.5, transparent: true }));
+vegSign.position.set(bodyW/2 + 0.02, floorY + 0.55, -cabL/2 - 1.6);
+vegSign.rotation.y = Math.PI / 2;
+truck.add(vegSign);
+track(vegSign, 'Vegetariano Sign');
+
+const menuBoardTex = createCanvasTexture(256, 320, (ctx, w, h) => {
+  ctx.fillStyle = '#FF1493'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = 'white'; ctx.font = 'bold 24px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('PIADINAS', w/2, 35); ctx.fillText('DE LA CASA', w/2, 60);
+  ctx.font = '16px Georgia'; ctx.textAlign = 'left';
+  ['Clásica Italiana','Pollo Milanesa','Salchicha Picante','Bistec y Pesto','Caprese']
+    .forEach((item, i) => ctx.fillText('• ' + item, 15, 100 + i * 40));
+  ctx.font = 'italic 18px Georgia'; ctx.textAlign = 'center';
+  ctx.fillText('¡Buen provecho!', w/2, h - 20);
+});
+const menuBoard = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.0),
+  new THREE.MeshStandardMaterial({ map: menuBoardTex, roughness: 0.6, side: THREE.DoubleSide }));
+menuBoard.position.set(bodyW/2 + 0.5, floorY + 0.6, -cabL/2 + 1.0);
+menuBoard.rotation.y = Math.PI / 2 + 0.15;
+truck.add(menuBoard);
+track(menuBoard, 'Pink Menu Board');
+
+const menuString = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3),
+  new THREE.MeshStandardMaterial({ color: 0x2D1810 }));
+menuString.position.set(bodyW/2 + 0.48, floorY + 1.25, -cabL/2 + 1.0);
+truck.add(menuString);
+track(menuString, 'Menu Board String');
+
+
+(function applyLayout() {
+  const data = {"Serving Window (Menu)_0":{"px":0.91,"py":1.8,"pz":-0.9,"rx":0,"ry":1.5708,"rz":0},"Serving Shelf_1":{"px":1.05,"py":1.28,"pz":-0.9,"rx":0,"ry":0,"rz":0},"Pink Awning_2":{"px":1.25,"py":2.35,"pz":-0.9,"rx":-0.01,"ry":1.6308,"rz":0},"Awning Pole_3":null,"Awning Pole_4":null,"Left Side Panel (Logo)_5":{"px":-0.91,"py":1.7,"pz":-0.6,"rx":0,"ry":-1.5708,"rz":0},"Right Side Branding_6":{"px":0.91,"py":2.45,"pz":-0.65,"rx":0,"ry":1.5708,"rz":0},"Back Panel_7":{"px":0,"py":1.7,"pz":-2.61,"rx":0,"ry":3.1416,"rz":0},"Front Panel_8":{"px":0,"py":1.5,"pz":3.21,"rx":0,"ry":0,"rz":0},"AC Unit_9":{"px":0,"py":2.8,"pz":-1.1,"rx":0,"ry":0,"rz":0},"Vegetariano Sign_10":{"px":0.9119,"py":0.9604,"pz":0.6695,"rx":0,"ry":1.5708,"rz":0},"Pink Menu Board_11":{"px":0.9633,"py":1.7327,"pz":0.7366,"rx":0,"ry":1.5608,"rz":0},"Menu Board String_12":null};
+  for (const mesh of tracked) {
+    const saved = data[mesh.userData.id];
+    if (saved === null) { mesh.visible = false; continue; }
+    if (saved) {
+      mesh.position.set(saved.px, saved.py, saved.pz);
+      mesh.rotation.set(saved.rx, saved.ry, saved.rz);
+    }
+  }
+})();
+
+
+function animate() {
+  requestAnimationFrame(animate);
+  wheels.forEach(w => w.children.forEach(c => {
+    if (c.geometry.type === 'TorusGeometry') c.rotation.x += 0.02;
+  }));
+  orbitControls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
